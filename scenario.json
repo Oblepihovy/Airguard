@@ -1,0 +1,28 @@
+{
+  "units": "SI: meters, seconds, m/s. Origin at airspace center, x east, y north.",
+  "snapshot_time_s": 0,
+  "airspace": {
+    "x_min_m": -200000,
+    "x_max_m": 200000,
+    "y_min_m": -200000,
+    "y_max_m": 200000,
+    "alt_min_m": 3000,
+    "alt_max_m": 12000
+  },
+  "target": {
+    "x_m": 20000.0,
+    "y_m": -10000.0,
+    "note": "static: the target does not move"
+  },
+  "hostile_object": {
+    "type": "drone",
+    "x_m": -60000.0,
+    "y_m": 50000.0,
+    "alt_m": 4000.0,
+    "vx_mps": 96.0,
+    "vy_mps": -72.0,
+    "vz_mps": 0.0,
+    "note": "flies a straight line at constant velocity toward the target"
+  },
+  "flights_file": "flights.csv"
+}
