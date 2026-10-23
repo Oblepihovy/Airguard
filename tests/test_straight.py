@@ -18,12 +18,6 @@ def make_plane(pid, r, v):
     return Plane(cfg.r0.copy(), cfg.v0.copy(), cfg)
 
 
-@pytest.fixture(scope="module")
-def straight_run():
-    """Полный прогон 1200 с на данных задачи, все летят прямо."""
-    system = load_system(str(SCENARIO), str(FLIGHTS), StraightControls)
-    system.run(1200.0)
-    return system
 
 
 # ------------------------------------------------------------------ RK4
@@ -111,7 +105,7 @@ def _max_potential(system, source, plane_id):
 def test_straight_flight_is_unsafe_target(straight_run):
     """F016 проходит в 64 м от цели — потенциал цели на нём ненулевой (шаг «1»)."""
     assert _max_potential(straight_run, straight_run.target, "F016") > 0.5
-    assert _max_potential(straight_run, straight_run.target, "F001") == 0
+    assert _max_potential(straight_run, straight_run.target, "F001") < 1e-6  # гладкий max: не ровно 0
 
 
 def test_straight_flight_is_unsafe_planes(straight_run):

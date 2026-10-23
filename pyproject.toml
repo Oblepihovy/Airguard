@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 dependencies = ["numpy>=1.26"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "matplotlib>=3.8"]
 
 # Пакета пока нет: модули лежат в src/ и rules/ и подключаются через pythonpath ниже.
 # pip install ".[dev]" ставит только зависимости.
