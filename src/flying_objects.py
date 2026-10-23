@@ -24,10 +24,13 @@ class AttentionObject(ABC):
         self.r = r
 
     @abstractmethod
-    def get_attention_potential(self, r_object: Vec3, tau: float = 0.0) -> float:
+    def get_attention_potential(self, r_object: Vec3, tau=0.0) -> np.ndarray:
         """Returns the attention potential of the object.
-        @:param r_object: Another object position (which wants to be awared of (self) object).
-        @:param tau: time ahead of now, s (self is taken at its predicted position at tau)."""
+        @:param r_object: Another object position tensor (which wants to be awared of (self) object).
+                          (3,) or (K, 3).
+        @:param tau: time ahead of now, s (self is taken at its predicted position at tau).
+                     (1, ) (K,) respectively
+        @:return: potential with shape (K,)"""
         pass
 
     def get_attention_gradient(self, r_object: Vec3, tau: float = 0.0, h: float = 1.0) -> Vec3:
@@ -44,7 +47,6 @@ class AttentionObject(ABC):
 
     @staticmethod
     def _bump(d: float, radius: float) -> float:
-        """Общая форма опасности: 0 при d >= radius, растёт к центру."""
         return m.softplus(0, 1 - (d / radius) ** 2)
 
 
@@ -77,44 +79,39 @@ class FlyingObject(AttentionObject, ABC):
         return np.array([self.r[0], self.r[1], self.r[2], v_xy, psi, self.v[2]])
 
     def set_state_array(self, s: np.typing.NDArray[np.float64]) -> None:
-        """Обратное к get_state_array: после шага RK записать состояние в объект."""
         self.r = np.array(s[:3], dtype=float)
         self.v = np.array([s[3] * np.cos(s[4]), s[3] * np.sin(s[4]), s[5]])
 
-    def position_at(self, tau: float) -> Vec3:
-        """Где объект будет через tau секунд. По умолчанию — прямая с текущей скоростью."""
-        return self.r + self.v * tau
+    def position_at(self, tau) -> Vec3:
+        return self.r + self.v * np.asarray(tau, dtype=float)[..., None]
 
 
 class Drone(FlyingObject):
-    def position_at(self, tau: float) -> Vec3:
-        # летит прямо к цели и останавливается в ней
+    def position_at(self, tau) -> Vec3:
+        # flies to the target and stops in there (h=0)
+        tau = np.asarray(tau, dtype=float)[..., None]
         speed = np.linalg.norm(self.v[:2])
         t_hit = np.linalg.norm(self.config.aim[:2] - self.r[:2]) / speed if speed > 0 else 0.0
-        if tau >= t_hit:
-            return self.config.aim  # долетел — он в земле, в точке цели
-        return self.r + self.v * tau
+        return np.where(tau >= t_hit, self.config.aim, self.r + self.v * tau)
 
     def get_attention_potential(self, r_object, tau=0.0):
-        # Ну тут типа около дрона мы в целом в окрестности находиться не хотим
         p = self.position_at(tau)
-        d_h = np.linalg.norm(r_object[:2] - p[:2])
-        dz = r_object[2] - p[2]
+        d_h = np.linalg.norm(r_object[..., :2] - p[..., :2], axis=-1)
+        dz = r_object[..., 2] - p[..., 2]
         return (self._bump(d_h, DRONE_DANGER_RADIUS * DANGER_MARGIN_FACTOR)
                 * self._bump(dz, DRONE_DANGER_HALF_HEIGHT))
 
 class DroneTarget(AttentionObject):
     def get_attention_potential(self, r_object, tau=0.0):
-        # колонна над целью: считаем только горизонтальное расстояние
-        return self._bump(np.linalg.norm(r_object[:2] - self.r[:2]), TARGET_DANGER_RADIUS * DANGER_MARGIN_FACTOR)
+        d_h = np.linalg.norm(r_object[..., :2] - self.r[:2], axis=-1)
+        u = self._bump(d_h, TARGET_DANGER_RADIUS * DANGER_MARGIN_FACTOR)
+        return u * np.ones(np.shape(tau))
 
 
 class PlaneConfig(FlyingObjectConfig):
     def __init__(self, config_dict: dict):
-        # Конфигурация самолета
         super().__init__(config_dict)
         self.horizon_s: float = config_dict.get("horizon_s", 1200.0)  # destination = r0 + v0 * horizon_s
-        # ЛТХ
         self.v_min: float = config_dict.get("v_min", 180.0)  # м/с
         self.v_max: float = config_dict.get("v_max", 260.0)
         self.a_tang_max: float = config_dict.get("a_tang_max", 1.0)  # м/с²
@@ -135,12 +132,11 @@ class Plane(FlyingObject):
 
     def __init__(self, r, v, plane_config: PlaneConfig):
         super().__init__(r, v, plane_config)
-        # В этом же классе будет храниться объект plane_config-а (self.config)
 
 
     def get_attention_potential(self, r_object, tau=0.0):
         p = self.position_at(tau)
-        d_h = np.linalg.norm(r_object[:2] - p[:2])
-        dz = r_object[2] - p[2]
+        d_h = np.linalg.norm(r_object[..., :2] - p[..., :2], axis=-1)
+        dz = r_object[..., 2] - p[..., 2]
         return (self._bump(d_h, PLANE_SEPARATION_H * DANGER_MARGIN_FACTOR)
                 * self._bump(dz, PLANE_SEPARATION_V))

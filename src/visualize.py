@@ -21,25 +21,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FFMpegWriter, FuncAnimation, PillowWriter
 
-from rules import rules_v1 as R
-
 EXTENT_M = 200e3  # сектор ±200 км
-# дальше этого от объекта его потенциал заведомо ноль — сетку вокруг не считаем
-BOX_M = R.DANGER_MARGIN_FACTOR * max(R.DRONE_DANGER_RADIUS, R.PLANE_SEPARATION_H,
-                                     R.TARGET_DANGER_RADIUS) + 2e3
 
 
 def field_at(objects, xs, ys, z_view=None):
     """Суммарный потенциал на сетке xs × ys. objects — AttentionObject с актуальным r."""
-    f = np.zeros((len(ys), len(xs)))
+    gx, gy = np.meshgrid(xs, ys)  # (len(ys), len(xs))
+    pts = np.stack([gx, gy, np.zeros_like(gx)], axis=-1).reshape(-1, 3)
+    f = np.zeros(len(pts))
     for obj in objects:
-        ix = np.flatnonzero(np.abs(xs - obj.r[0]) < BOX_M)
-        iy = np.flatnonzero(np.abs(ys - obj.r[1]) < BOX_M)
-        z = obj.r[2] if z_view is None else z_view
-        for j in iy:
-            for i in ix:
-                f[j, i] += obj.get_attention_potential(np.array([xs[i], ys[j], z]))
-    return f
+        pts[:, 2] = obj.r[2] if z_view is None else z_view
+        f += obj.get_attention_potential(pts)  # вся сетка одним вызовом
+    return f.reshape(gx.shape)
 
 
 def animate(system, path, step_s=10.0, cell_m=2000.0, z_view=None, fps=10, trail_s=120.0):
