@@ -51,3 +51,13 @@ def test_drone_position_at_vector_stops_at_aim():
     assert np.allclose(p[0], drone.r)
     assert np.allclose(p[1], drone.r + drone.v * 100.0)
     assert np.allclose(p[2], drone.config.aim)
+
+
+def test_plane_config_defaults_come_from_rules():
+    from rules import rules_v1 as R
+
+    c = PlaneConfig({"id": "X", "r0": [0, 0, 5000], "v0": [230, 0, 0]})
+    assert (c.v_min, c.v_max, c.vz_max) == (R.PLANE_V_MIN, R.PLANE_V_MAX, R.PLANE_VZ_MAX)
+    assert c.turn_rate_max == pytest.approx(np.radians(R.PLANE_TURN_RATE_MAX_DPS))
+    assert c.horizon_s == R.DESTINATION_HORIZON_S
+    assert PlaneConfig({"id": "X", "r0": [0, 0, 5000], "v0": [230, 0, 0], "v_max": 250.0}).v_max == 250.0

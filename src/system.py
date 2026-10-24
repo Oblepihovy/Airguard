@@ -22,6 +22,7 @@ from flying_objects import (
     Plane,
     PlaneConfig,
 )
+from rules import rules_v1 as R
 
 State = np.typing.NDArray[np.float64]  # (6,): x, y, z, V_xy, psi, v_z
 Control = np.typing.NDArray[np.float64]  # (3,): a_tang, omega, a_z
@@ -72,8 +73,14 @@ class StraightControls(Controls):
 
 
 class System:
-    def __init__(self, planes: list[Plane], drone: Drone, target: DroneTarget,
-                 controls: dict[str, Controls], dt: float = 1.0, substeps: int = 4,
+    def __init__(
+        self,
+        planes: list[Plane],
+        drone: Drone,
+        target: DroneTarget,
+        controls: dict[str, Controls],
+        dt: float = R.SIM_DT,
+        substeps: int = R.SIM_SUBSTEPS,
     ):
         self.planes = planes
         self.drone = drone
@@ -130,6 +137,17 @@ class System:
             np.array(self.velocities),
         )
 
+    def save_trajectory(self, path: str) -> None:
+        """Траектории всех бортов в CSV: одна строка на (момент, борт)."""
+        times, ids, pos, vel = self.trajectory()
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(["t_s", "flight_id", "x_m", "y_m", "alt_m", "vx_mps", "vy_mps", "vz_mps"])
+            for k, t in enumerate(times):
+                for n, fid in enumerate(ids):
+                    w.writerow([f"{t:g}", fid, *(f"{c:.1f}" for c in pos[k, n]),
+                                *(f"{c:.2f}" for c in vel[k, n])])
+
 
 # ------------------------------------------------------------------ загрузка сценария
 
@@ -138,8 +156,8 @@ def load_system(
     scenario_path: str,
     flights_path: str,
     controls_factory=StraightControls,
-    dt: float = 1.0,
-    substeps: int = 4,
+    dt: float = R.SIM_DT,
+    substeps: int = R.SIM_SUBSTEPS,
 ) -> System:
     with open(scenario_path, encoding="utf-8") as f:
         sc = json.load(f)

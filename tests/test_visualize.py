@@ -28,3 +28,11 @@ def test_animation_smoke(tmp_path, straight_run):
     out = tmp_path / "a.gif"
     animate(system, out, step_s=10.0, cell_m=10_000.0)
     assert out.stat().st_size > 0
+
+
+def test_plot_tracks_smoke(tmp_path, straight_run):
+    from visualize import plot_tracks
+
+    out = tmp_path / "tracks.png"
+    plot_tracks(straight_run, out)
+    assert out.stat().st_size > 0

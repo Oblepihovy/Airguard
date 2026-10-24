@@ -50,19 +50,19 @@ def animate(system, path, step_s=10.0, cell_m=2000.0, z_view=None, fps=10, trail
     fig, ax = plt.subplots(figsize=(8, 8))
     img = ax.imshow(np.zeros((len(ys), len(xs))), origin="lower", cmap="magma_r",
                     extent=(xs[0] * km, xs[-1] * km, ys[0] * km, ys[-1] * km), vmin=0, vmax=1.5)
-    fig.colorbar(img, ax=ax, shrink=0.8, label="суммарный потенциал опасности")
+    fig.colorbar(img, ax=ax, shrink=0.8, label="total danger potential")
     trails = [ax.plot([], [], lw=0.8, color="tab:blue", alpha=0.5)[0] for _ in ids]
     planes_sc = ax.scatter([], [], c=[], cmap="viridis", vmin=3000, vmax=12000, s=18, zorder=3)
-    drone_sc = ax.scatter([], [], marker="x", s=60, color="crimson", zorder=4, label="дрон")
-    ax.scatter(*target.r[:2] * km, marker="D", s=40, color="purple", zorder=4, label="цель")
+    drone_sc = ax.scatter([], [], marker="x", s=60, color="crimson", zorder=4, label="drone")
+    ax.scatter(*target.r[:2] * km, marker="D", s=40, color="purple", zorder=4, label="target")
     title = ax.set_title("")
-    ax.set_xlabel("x, км (восток)")
-    ax.set_ylabel("y, км (север)")
+    ax.set_xlabel("x, km (east)")
+    ax.set_ylabel("y, km (north)")
     ax.set_xlim(xs[0] * km, xs[-1] * km)
     ax.set_ylim(ys[0] * km, ys[-1] * km)
     ax.set_aspect("equal")
     ax.legend(loc="lower left")
-    mode = "следы на своих высотах" if z_view is None else f"срез на {z_view:.0f} м"
+    mode = "each object at its own altitude" if z_view is None else f"slice at {z_view:.0f} m"
 
     def draw(k):
         for p, r, v in zip(planes, pos[k], vel[k]):
@@ -75,12 +75,55 @@ def animate(system, path, step_s=10.0, cell_m=2000.0, z_view=None, fps=10, trail
         planes_sc.set_offsets(pos[k, :, :2] * km)
         planes_sc.set_array(pos[k, :, 2])
         drone_sc.set_offsets([drone_pos[k, :2] * km])
-        title.set_text(f"t = {times[k]:.0f} с   ({mode})")
+        title.set_text(f"t = {times[k]:.0f} s   ({mode})")
         return [img, planes_sc, drone_sc, title, *trails]
 
     anim = FuncAnimation(fig, draw, frames=frames, blit=False)
     writer = FFMpegWriter(fps=fps) if str(path).endswith(".mp4") else PillowWriter(fps=fps)
     anim.save(path, writer=writer, dpi=90)
+    plt.close(fig)
+
+
+def plot_tracks(system, path, title=""):
+    """Статичный график (x, y): исходные прямые пунктиром, фактические трассы цветом по эшелону,
+    зона цели, путь дрона и его зона в нескольких моментах."""
+    from matplotlib.patches import Circle
+
+    from rules import rules_v1 as R
+
+    times, ids, pos, _ = system.trajectory()
+    drone_pos = np.array(system.drone_positions)
+    km = 1e-3
+    fig, ax = plt.subplots(figsize=(9, 9))
+    cmap = plt.get_cmap("viridis")
+    for n, p in enumerate(system.planes):
+        c = p.config
+        end = c.r0 + c.v0 * (times[-1] - times[0])
+        ax.plot([c.r0[0] * km, end[0] * km], [c.r0[1] * km, end[1] * km],
+                color="0.8", lw=0.8, ls="--", zorder=1)
+        color = cmap((c.r0[2] - R.ALT_MIN) / (R.ALT_MAX - R.ALT_MIN))
+        ax.plot(pos[:, n, 0] * km, pos[:, n, 1] * km, color=color, lw=1.4, zorder=2)
+        ax.plot(pos[-1, n, 0] * km, pos[-1, n, 1] * km, "o", ms=3, color=color, zorder=3)
+    ax.plot(drone_pos[:, 0] * km, drone_pos[:, 1] * km, color="crimson", lw=2, zorder=4, label="drone")
+    for k in (0, len(times) // 4, len(times) // 2):
+        ax.add_patch(Circle((drone_pos[k, 0] * km, drone_pos[k, 1] * km), R.DRONE_DANGER_RADIUS * km,
+                            fill=False, ec="crimson", ls=":", zorder=4))
+    t = system.target.r
+    ax.add_patch(Circle((t[0] * km, t[1] * km), R.TARGET_DANGER_RADIUS * km,
+                        color="purple", alpha=0.25, zorder=4))
+    ax.plot(t[0] * km, t[1] * km, "D", color="purple", zorder=5, label="target")
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(R.ALT_MIN, R.ALT_MAX))
+    fig.colorbar(sm, ax=ax, shrink=0.8, label="initial flight level, m")
+    ax.set_xlim(-EXTENT_M * km, EXTENT_M * km)
+    ax.set_ylim(-EXTENT_M * km, EXTENT_M * km)
+    ax.set_aspect("equal")
+    ax.grid(alpha=0.3)
+    ax.set_xlabel("x, km (east)")
+    ax.set_ylabel("y, km (north)")
+    ax.set_title(title or f"tracks over {times[-1]:.0f} s (dashed: original straight routes)")
+    ax.legend(loc="lower left")
+    fig.tight_layout()
+    fig.savefig(path, dpi=130)
     plt.close(fig)
 
 

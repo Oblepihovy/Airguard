@@ -18,11 +18,9 @@ import numpy as np
 
 from rules import rules_v1 as R
 
-# Допуск выдерживания эшелона: соседние эшелоны стоят ровно в 300 м,
-# и 299.99999 м из-за округления не должно считаться нарушением.
-V_TOL = getattr(R, "PLANE_SEPARATION_V_TOL", 1.0)
-ALT_MIN = getattr(R, "ALT_MIN", 3000.0)
-ALT_MAX = getattr(R, "ALT_MAX", 12000.0)
+V_TOL = R.PLANE_SEPARATION_V_TOL  # соседние эшелоны ровно в 300 м — округление не нарушение
+ALT_MIN = R.ALT_MIN
+ALT_MAX = R.ALT_MAX
 KIN_TOL = 0.01  # 1% на конечные разности
 
 

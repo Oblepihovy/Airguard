@@ -18,6 +18,7 @@ def make_plane(pid, r, v):
     return Plane(cfg.r0.copy(), cfg.v0.copy(), cfg)
 
 
+# фикстура straight_run (полный прогон 1200 с, все летят прямо) — в tests/conftest.py
 
 
 # ------------------------------------------------------------------ RK4
@@ -127,3 +128,15 @@ def test_straight_flight_is_unsafe_drone(straight_run):
     d = np.linalg.norm(pos[:, i, :2] - drone_pos[:, :2], axis=1)
     assert d.min() < 1000.0
     assert abs(pos[int(np.argmin(d)), i, 2] - drone_pos[int(np.argmin(d)), 2]) < 1500.0
+
+
+def test_save_trajectory_csv(tmp_path, straight_run):
+    path = tmp_path / "traj.csv"
+    straight_run.save_trajectory(str(path))
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "t_s,flight_id,x_m,y_m,alt_m,vx_mps,vy_mps,vz_mps"
+    assert len(lines) == 1 + 1201 * 40  # заголовок + каждый борт в каждую секунду
+    t, fid, x, y, z, *_ = lines[-1].split(",")
+    p = straight_run.planes[-1]
+    assert (t, fid) == ("1200", p.config.id)
+    assert np.allclose([float(x), float(y), float(z)], p.r, atol=0.1)

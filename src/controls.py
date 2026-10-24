@@ -17,10 +17,11 @@
 import numpy as np
 
 from flying_objects import AttentionObject, Plane
+from rules import rules_v1 as R
 from system import Control, Controls
 
-ALT_MIN = 3000.0
-ALT_MAX = 12000.0
+ALT_MIN = R.ALT_MIN
+ALT_MAX = R.ALT_MAX
 
 
 def wrap_pi(a):
@@ -51,16 +52,16 @@ def predict_path(r0, speed, psi, psi_goal, z_goal, omega_max, vz_max, taus):
 class SearchControls(Controls):
     def __init__(
         self,
-        heading_options_deg=(-90, -60, -30, -15, 0, 15, 30, 60, 90),  # минус — вправо
-        altitude_options_m=(0.0, 600.0, -600.0, 1500.0, 3000.0),
-        carrot_s=60.0,
-        danger_weight=10.0,  # опасность важнее маршрута: зона нарушается, маршрут — только портится
-        route_weight=1.0,
-        lag_weight=2.0,
-        maneuver_penalty=0.02,
-        switch_penalty=0.5,
-        vertical_rule_penalty=0.5,
-        dt=1.0,
+        heading_options_deg=R.HEADING_OPTIONS_DEG,  # минус — вправо
+        altitude_options_m=R.ALTITUDE_OPTIONS_M,
+        carrot_s=R.CARROT_S,
+        danger_weight=R.CONTROL_DANGER_WEIGHT,  # опасность важнее маршрута
+        route_weight=R.CONTROL_ROUTE_WEIGHT,
+        lag_weight=R.CONTROL_LAG_WEIGHT,
+        maneuver_penalty=R.CONTROL_MANEUVER_PENALTY,
+        switch_penalty=R.CONTROL_SWITCH_PENALTY,
+        vertical_rule_penalty=R.CONTROL_VERTICAL_RULE_PENALTY,
+        dt=R.SIM_DT,
     ):
         self.dpsi = np.radians(np.asarray(heading_options_deg, dtype=float))
         self.dz = np.asarray(altitude_options_m, dtype=float)
